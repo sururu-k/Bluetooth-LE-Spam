@@ -7,3 +7,4 @@ build/
 /app/release/
 
 .kotlin/
+desktop/__pycache__/
